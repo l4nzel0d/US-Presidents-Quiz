@@ -81,6 +81,62 @@
 
   var MODE_KEYS = ['no', 'name', 'years', 'mixed'];
 
+  /* ---------- number range ----------------------------------------------
+   * Which presidency numbers are in play. Kept in localStorage so the choice
+   * survives navigation, and mirrored into the quiz URL (#/quiz/mixed/1-20)
+   * so a round is shareable and reloadable.
+   */
+
+  var NO_MIN = Math.min.apply(null, DATA.map(function (p) { return p.no; }));
+  var NO_MAX = Math.max.apply(null, DATA.map(function (p) { return p.no; }));
+  var STORE_KEY = 'usq.range';
+
+  var PRESETS = [
+    { label: 'All',      lo: NO_MIN, hi: NO_MAX },
+    { label: 'Founding', lo: 1,      hi: 8      },
+    { label: '19th c.',  lo: 6,      hi: 25     },
+    { label: 'Modern',   lo: 32,     hi: NO_MAX }
+  ];
+
+  function clampNo(n) {
+    n = Math.round(Number(n));
+    if (!isFinite(n)) return NO_MIN;
+    return Math.min(NO_MAX, Math.max(NO_MIN, n));
+  }
+
+  function makeRange(lo, hi) {
+    lo = clampNo(lo);
+    hi = clampNo(hi);
+    return lo <= hi ? { lo: lo, hi: hi } : { lo: hi, hi: lo };
+  }
+
+  function parseRange(str) {
+    var m = /^(\d+)-(\d+)$/.exec(str || '');
+    return m ? makeRange(m[1], m[2]) : null;
+  }
+
+  function rangeSlug(r) { return r.lo + '-' + r.hi; }
+
+  function rangeText(r) {
+    return r.lo === NO_MIN && r.hi === NO_MAX
+      ? 'All presidents'
+      : '#' + r.lo + '–#' + r.hi;
+  }
+
+  function storedRange() {
+    var saved;
+    try { saved = localStorage.getItem(STORE_KEY); } catch (e) { saved = null; }
+    return parseRange(saved) || { lo: NO_MIN, hi: NO_MAX };
+  }
+
+  function storeRange(r) {
+    try { localStorage.setItem(STORE_KEY, rangeSlug(r)); } catch (e) { /* private mode */ }
+  }
+
+  function pool(r) {
+    return DATA.filter(function (p) { return p.no >= r.lo && p.no <= r.hi; });
+  }
+
   /* ---------- shell ------------------------------------------------------ */
 
   var view    = document.getElementById('view');
@@ -111,11 +167,102 @@
     return DATA.filter(function (p) { return p.name === rec.name; });
   }
 
+  /* ---------- range picker ------------------------------------------------
+   * Two overlaid range inputs make the twin-thumb control. The inputs ignore
+   * pointer events except on their thumbs (see styles.css), so whichever thumb
+   * is under the cursor is the one that moves.
+   */
+
+  function renderRangePicker(range, onChange) {
+    var box = el('section', 'range');
+    box.innerHTML =
+      '<div class="range-head">' +
+        '<span class="range-title">Presidents in play</span>' +
+        '<span class="range-value"></span>' +
+      '</div>' +
+      '<div class="slider">' +
+        '<div class="slider-rail"></div>' +
+        '<div class="slider-fill"></div>' +
+        '<input type="range" class="thumb lo" aria-label="Lowest presidency number">' +
+        '<input type="range" class="thumb hi" aria-label="Highest presidency number">' +
+      '</div>' +
+      '<div class="presets"></div>' +
+      '<p class="range-count"></p>';
+
+    var lo    = box.querySelector('.lo');
+    var hi    = box.querySelector('.hi');
+    var fill  = box.querySelector('.slider-fill');
+    var value = box.querySelector('.range-value');
+    var count = box.querySelector('.range-count');
+
+    [lo, hi].forEach(function (input) {
+      input.min = NO_MIN;
+      input.max = NO_MAX;
+      input.step = 1;
+    });
+
+    var presets = box.querySelector('.presets');
+    var chips = PRESETS.map(function (p) {
+      var b = el('button', 'chip', p.label);
+      b.type = 'button';
+      b.addEventListener('click', function () { apply(makeRange(p.lo, p.hi), true); });
+      presets.appendChild(b);
+      return b;
+    });
+
+    function paint() {
+      var span = NO_MAX - NO_MIN;
+      var a = (range.lo - NO_MIN) / span * 100;
+      var b = (range.hi - NO_MIN) / span * 100;
+      fill.style.left = a + '%';
+      fill.style.right = (100 - b) + '%';
+
+      // With both thumbs parked at the top, the upper input would swallow every
+      // grab; lifting the lower one keeps it reachable.
+      lo.style.zIndex = range.lo === NO_MAX ? 5 : 3;
+
+      var list = pool(range);
+      value.textContent = rangeText(range);
+      count.textContent = list.length + (list.length === 1 ? ' term' : ' terms') +
+        ' — ' + list[0].name + ' to ' + list[list.length - 1].name;
+
+      chips.forEach(function (b, i) {
+        var p = PRESETS[i];
+        b.classList.toggle('on', p.lo === range.lo && p.hi === range.hi);
+      });
+    }
+
+    function apply(next, syncInputs) {
+      range = next;
+      if (syncInputs) { lo.value = range.lo; hi.value = range.hi; }
+      paint();
+      onChange(range);
+    }
+
+    // Thumbs may be dragged past one another; the pair is re-sorted on release.
+    lo.addEventListener('input', function () {
+      apply({ lo: Math.min(clampNo(lo.value), range.hi), hi: range.hi }, false);
+    });
+    hi.addEventListener('input', function () {
+      apply({ lo: range.lo, hi: Math.max(clampNo(hi.value), range.lo) }, false);
+    });
+    [lo, hi].forEach(function (input) {
+      input.addEventListener('change', function () { lo.value = range.lo; hi.value = range.hi; });
+    });
+
+    lo.value = range.lo;
+    hi.value = range.hi;
+    paint();
+    return box;
+  }
+
   /* ---------- menu ------------------------------------------------------- */
 
   function renderMenu() {
     scoreEl.hidden = true;
     view.innerHTML = '';
+
+    var range = storedRange();
 
     var intro = el('p', 'lede',
       'Every round gives you one piece of a presidency and asks for the other two. ' +
@@ -123,15 +270,25 @@
     view.appendChild(intro);
 
     var grid = el('div', 'modes');
-    MODE_KEYS.forEach(function (key) {
+    var links = MODE_KEYS.map(function (key) {
       var m = MODES[key];
       var a = el('a', 'mode');
-      a.href = '#/quiz/' + key;
+      a.href = '#/quiz/' + key + '/' + rangeSlug(range);
       a.innerHTML =
         '<span class="mode-title">' + m.title + '</span>' +
         '<span class="mode-blurb">' + m.blurb + '</span>';
       grid.appendChild(a);
+      return a;
     });
+
+    view.appendChild(renderRangePicker(range, function (next) {
+      range = next;
+      storeRange(range);
+      links.forEach(function (a, i) {
+        a.href = '#/quiz/' + MODE_KEYS[i] + '/' + rangeSlug(range);
+      });
+    }));
+
     view.appendChild(grid);
 
     var browse = el('a', 'browse', 'Browse all ' + DATA.length + ' terms →');
@@ -170,7 +327,8 @@
 
   /* ---------- quiz ------------------------------------------------------- */
 
-  function renderQuiz(mode) {
+  function renderQuiz(mode, range) {
+    var picks = pool(range);
     var deck = [];
     var asked = 0, right = 0;
     var current = null;
@@ -180,7 +338,8 @@
     askedEl.textContent = '0';
 
     view.innerHTML = '';
-    view.appendChild(el('p', 'mode-tag', MODES[mode].title));
+    view.appendChild(el('p', 'mode-tag',
+      MODES[mode].title + ' <span class="tag-range">' + rangeText(range) + '</span>'));
 
     var card = el('section', 'card');
     card.innerHTML =
@@ -219,7 +378,7 @@
     q.next.addEventListener('click', nextQuestion);
 
     function draw() {
-      if (!deck.length) deck = shuffle(DATA);
+      if (!deck.length) deck = shuffle(picks);
       return deck.pop();
     }
 
@@ -317,7 +476,11 @@
     var parts = location.hash.replace(/^#\/?/, '').split('/');
     window.scrollTo(0, 0);
 
-    if (parts[0] === 'quiz' && MODES[parts[1]]) return renderQuiz(parts[1]);
+    if (parts[0] === 'quiz' && MODES[parts[1]]) {
+      var range = parseRange(parts[2]) || storedRange();
+      storeRange(range);
+      return renderQuiz(parts[1], range);
+    }
     if (parts[0] === 'list') return renderList();
     renderMenu();
   }

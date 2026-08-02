@@ -127,7 +127,8 @@ main {
 
 .card,
 .mode,
-.rows {
+.rows,
+.range {
   background: rgba(242, 238, 228, 0.92);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -177,6 +178,173 @@ main {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--brown);
+}
+
+.tag-range {
+  color: var(--stone);
+  font-variant-numeric: tabular-nums;
+}
+
+.tag-range::before {
+  content: "· ";
+  color: var(--tan);
+}
+
+/* ---------- range picker ---------- */
+
+.range {
+  padding: 1rem 1.1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.range-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.range-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brown);
+}
+
+.range-value {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--brick);
+}
+
+.range-count {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* --- twin-thumb slider --- */
+
+.slider {
+  position: relative;
+  height: 1.6rem;
+  margin: 0 0.6rem; /* room for the thumbs at either extreme */
+}
+
+.slider-rail,
+.slider-fill {
+  position: absolute;
+  top: 50%;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.slider-rail {
+  left: 0;
+  right: 0;
+  background: var(--tan);
+}
+
+.slider-fill { background: var(--brick); }
+
+/* The inputs sit on top of one another; only their thumbs take pointer events
+   so the visible rail underneath stays clickable-through and either thumb can
+   be grabbed even where the two tracks overlap. */
+.thumb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: none;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.thumb.lo { z-index: 3; }
+.thumb.hi { z-index: 4; }
+
+.thumb:focus { outline: none; }
+
+.thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: var(--paper-warm);
+  border: 3px solid var(--brick);
+  box-shadow: 0 1px 4px rgba(47, 39, 33, 0.3);
+  cursor: grab;
+}
+
+.thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--paper-warm);
+  border: 3px solid var(--brick);
+  box-shadow: 0 1px 4px rgba(47, 39, 33, 0.3);
+  cursor: grab;
+}
+
+.thumb::-webkit-slider-thumb:active { cursor: grabbing; }
+.thumb::-moz-range-thumb:active { cursor: grabbing; }
+
+.thumb:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(138, 52, 38, 0.3);
+}
+
+.thumb:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(138, 52, 38, 0.3);
+}
+
+.thumb::-moz-range-track { background: none; border: none; }
+
+/* --- presets --- */
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--brown);
+  background: rgba(232, 227, 214, 0.7);
+  border: 1px solid var(--tan);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.chip:hover { border-color: var(--brick); }
+
+.chip.on {
+  color: var(--paper);
+  background: var(--brick);
+  border-color: transparent;
+}
+
+.chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(138, 52, 38, 0.3);
 }
 
 /* ---------- record list ---------- */
