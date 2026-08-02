@@ -345,10 +345,10 @@
     card.innerHTML =
       '<p class="given-label"></p>' +
       '<p class="given-value"></p>' +
-      '<form class="fields" autocomplete="off" novalidate></form>' +
+      '<form class="fields" id="answers" autocomplete="off" novalidate></form>' +
       '<div class="reveal" hidden></div>' +
       '<div class="actions">' +
-        '<button type="submit" class="btn primary check">Check</button>' +
+        '<button type="submit" form="answers" class="btn primary check">Check</button>' +
         '<button type="button" class="btn primary next" hidden>Next question</button>' +
       '</div>';
     view.appendChild(card);
@@ -369,8 +369,8 @@
       next:   card.querySelector('.next')
     };
 
-    // The submit button lives outside the form element, so wire it directly.
-    q.check.addEventListener('click', function (e) { e.preventDefault(); grade(); });
+    // The button sits outside the form for layout reasons; form="answers" keeps
+    // it the form's submit button, so Enter in either field grades the answer.
     q.form.addEventListener('submit', function (e) {
       e.preventDefault();
       if (!q.check.hidden) grade();
